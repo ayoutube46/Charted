@@ -288,7 +288,12 @@ function renderMap() {
   svg.setAttribute('width', width);
   svg.setAttribute('height', height);
   svg.innerHTML = '';
-  canvas.querySelectorAll('.map-node').forEach((n) => n.remove());
+  // clear everything in the canvas except the connectors svg itself
+  // (previously this only removed .map-node tiles, which left a stale
+  // "no regions yet" message on screen once topics loaded in)
+  Array.from(canvas.children).forEach((child) => {
+    if (child !== svg) child.remove();
+  });
 
   if (!state.topics.length) {
     canvas.style.height = '160px';
