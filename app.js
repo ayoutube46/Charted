@@ -244,9 +244,111 @@ function renderDashboard() {
 // ============================================================
 // MAP (topic tree)
 // ============================================================
+const STATUS_ICON = { uncharted: '○', exploring: '◐', charted: '●', review: '⚑' };
+
+function computeLayout() {
+  const childrenMap = {};
+  state.topics.forEach((t) => {
+    const key = t.parent_id || 'root';
+    (childrenMap[key] = childrenMap[key] || []).push(t);
+  });
+  Object.values(childrenMap).forEach((arr) => arr.sort((a, b) => a.position - b.position));
+
+  const positions = {};
+  let leafCounter = 0;
+  function assign(node, depth) {
+    const kids = childrenMap[node.id] || [];
+    if (!kids.length) {
+      positions[node.id] = { x: leafCounter, depth };
+      leafCounter += 1;
+    } else {
+      kids.forEach((k) => assign(k, depth + 1));
+      const xs = kids.map((k) => positions[k.id].x);
+      positions[node.id] = { x: (Math.min(...xs) + Math.max(...xs)) / 2, depth };
+    }
+  }
+  (childrenMap['root'] || []).forEach((r) => assign(r, 0));
+  return { positions, leafCount: Math.max(leafCounter, 1) };
+}
+
 function renderMap() {
-  $('#topicTree').innerHTML = renderTree(null);
-  bindTreeEvents($('#topicTree'));
+  const { positions, leafCount } = computeLayout();
+  const colWidth = 120, rowHeight = 116, padX = 60, padY = 20, tile = 60;
+
+  let maxDepth = 0;
+  Object.values(positions).forEach((p) => { if (p.depth > maxDepth) maxDepth = p.depth; });
+
+  const canvas = $('#mapCanvas');
+  const svg = $('#mapConnectors');
+  const width = leafCount * colWidth + padX * 2;
+  const height = (maxDepth + 1) * rowHeight + padY * 2;
+
+  canvas.style.width = width + 'px';
+  canvas.style.height = height + 'px';
+  svg.setAttribute('width', width);
+  svg.setAttribute('height', height);
+  svg.innerHTML = '';
+  canvas.querySelectorAll('.map-node').forEach((n) => n.remove());
+
+  if (!state.topics.length) {
+    canvas.style.height = '160px';
+    const empty = document.createElement('div');
+    empty.className = 'empty-note';
+    empty.style.padding = '60px 20px';
+    empty.textContent = 'No regions charted yet — add your first expedition point above.';
+    canvas.appendChild(empty);
+    $('#addRootTopicBtn').onclick = () => promptNewTopic(null);
+    return;
+  }
+
+  const pxOf = (id) => {
+    const p = positions[id];
+    return { x: p.x * colWidth + padX, y: p.depth * rowHeight + padY };
+  };
+
+  state.topics.forEach((t) => {
+    if (t.parent_id) {
+      const parentPx = pxOf(t.parent_id);
+      const childPx = pxOf(t.id);
+      const x1 = parentPx.x + tile / 2, y1 = parentPx.y + tile;
+      const x2 = childPx.x + tile / 2, y2 = childPx.y;
+      const midY = (y1 + y2) / 2;
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', `M ${x1} ${y1} V ${midY} H ${x2} V ${y2}`);
+      path.setAttribute('class', `connector ${t.status}`);
+      svg.appendChild(path);
+    }
+  });
+
+  state.topics.forEach((t) => {
+    const { x, y } = pxOf(t.id);
+    const noteCount = state.notes.filter((n) => n.topic_id === t.id).length;
+    const el = document.createElement('div');
+    el.className = 'map-node';
+    el.style.left = x + tile / 2 + 'px';
+    el.style.top = y + 'px';
+    el.innerHTML = `
+      <div class="map-tile ${t.status}" data-id="${t.id}">
+        <span class="map-tile-icon">${STATUS_ICON[t.status] || '○'}</span>
+        <button class="map-add-btn" data-id="${t.id}" title="Add sub-region">+</button>
+      </div>
+      <div class="map-label">${escapeHtml(truncate(t.title, 18))}${noteCount ? ` <span style="color:var(--text-muted)">(${noteCount})</span>` : ''}</div>
+    `;
+    canvas.appendChild(el);
+  });
+
+  canvas.querySelectorAll('.map-tile').forEach((tileEl) =>
+    tileEl.addEventListener('click', (e) => {
+      if (e.target.classList.contains('map-add-btn')) return;
+      openTopic(tileEl.dataset.id);
+    })
+  );
+  canvas.querySelectorAll('.map-add-btn').forEach((b) =>
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      promptNewTopic(b.dataset.id);
+    })
+  );
   $('#addRootTopicBtn').onclick = () => promptNewTopic(null);
 }
 
