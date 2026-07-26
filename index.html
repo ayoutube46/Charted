@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Charted — a field guide to the school system</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ================= AUTH SCREEN ================= -->
+<div class="auth-screen" id="authScreen">
+  <div class="auth-card">
+    <div class="auth-mark">EXPEDITION LOG</div>
+    <h1>Charted</h1>
+    <p class="auth-sub">Your personal field guide for mapping the school management system, one region at a time.</p>
+
+    <div class="auth-error" id="authError"></div>
+
+    <form id="authForm">
+      <div class="field">
+        <label for="authEmail">Email</label>
+        <input type="email" id="authEmail" required autocomplete="email">
+      </div>
+      <div class="field">
+        <label for="authPassword">Password</label>
+        <input type="password" id="authPassword" required autocomplete="current-password" minlength="6">
+      </div>
+      <button type="submit" class="btn btn-primary" id="authSubmitBtn">Enter the field</button>
+    </form>
+
+    <div class="auth-toggle">
+      <span id="authToggleLabel">New here?</span>
+      <button type="button" id="authToggleBtn">Create an account</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= APP SHELL ================= -->
+<div class="app-shell" id="appShell">
+
+  <!-- LEFT RAIL -->
+  <nav class="rail">
+    <div class="rail-brand">Charted<span>.</span></div>
+
+    <button class="nav-item active" data-view="dashboard">
+      <span class="nav-icon">◆</span> Dashboard
+    </button>
+    <button class="nav-item" data-view="map">
+      <span class="nav-icon">⌗</span> The Map
+    </button>
+    <button class="nav-item" data-view="guidebook">
+      <span class="nav-icon">▤</span> Guidebook
+    </button>
+    <button class="nav-item" data-view="search">
+      <span class="nav-icon">⌕</span> Search
+    </button>
+
+    <div class="rail-footer">
+      <div class="streak-chip" id="streakChip">🔥 0-day streak</div>
+      <button class="rail-signout" id="signOutBtn">Sign out</button>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- ---------- DASHBOARD ---------- -->
+    <section class="view active" id="view-dashboard">
+      <div class="view-header">
+        <div>
+          <h2>Expedition overview</h2>
+          <div class="sub">Where things stand across everything you've charted.</div>
+        </div>
+      </div>
+
+      <div class="progress-ring-wrap">
+        <svg width="90" height="90" viewBox="0 0 90 90">
+          <circle class="ring-bg" cx="45" cy="45" r="38" stroke-width="8" fill="none"/>
+          <circle class="ring-fg" id="ringFg" cx="45" cy="45" r="38" stroke-width="8" fill="none"
+                  stroke-dasharray="238.76" stroke-dashoffset="238.76"/>
+          <text x="45" y="51" text-anchor="middle" class="ring-label" id="ringLabel">0%</text>
+        </svg>
+        <div>
+          <h3 style="font-size:17px;margin-bottom:4px;">Overall territory charted</h3>
+          <div class="sub" id="ringSub" style="color:var(--text-muted);font-size:13px;">0 of 0 topics fully mastered</div>
+        </div>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-num" id="statTopics">0</div><div class="stat-label">Topics charted</div></div>
+        <div class="stat-card"><div class="stat-num" id="statNotes">0</div><div class="stat-label">Field notes</div></div>
+        <div class="stat-card"><div class="stat-num" id="statStreak">0</div><div class="stat-label">Day streak</div></div>
+        <div class="stat-card"><div class="stat-num" id="statReview">0</div><div class="stat-label">Need review</div></div>
+      </div>
+
+      <div class="section-title">Due for review</div>
+      <div class="review-list" id="reviewList"><div class="empty-note">Nothing needs revisiting yet — nice.</div></div>
+
+      <div class="section-title">Recent activity</div>
+      <div class="activity-list" id="activityList"><div class="empty-note">No activity logged yet. Add a topic or note to get started.</div></div>
+    </section>
+
+    <!-- ---------- MAP ---------- -->
+    <section class="view" id="view-map">
+      <div class="view-header">
+        <div>
+          <h2>The map</h2>
+          <div class="sub">Every region of the system you've discovered so far.</div>
+        </div>
+      </div>
+      <div class="map-toolbar">
+        <button class="btn btn-ghost" id="exportBtn">Export as Markdown</button>
+      </div>
+      <div class="topic-tree" id="topicTree"></div>
+      <div class="add-topic-inline" style="margin-left:0;padding-left:0;margin-top:10px;">
+        <button class="btn-add-root" id="addRootTopicBtn">+ Chart a new region</button>
+      </div>
+    </section>
+
+    <!-- ---------- TOPIC DETAIL ---------- -->
+    <section class="view" id="view-topic">
+      <div class="crumb"><button id="backToMapBtn">← back to map</button></div>
+      <div class="journal-header">
+        <h2 id="topicTitle">—</h2>
+        <div class="status-select" id="statusSelect"></div>
+      </div>
+      <div class="sub" id="topicMeta" style="color:var(--text-muted);font-size:13px;"></div>
+
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="notes">Field notes</button>
+        <button class="tab-btn" data-tab="checklist">Steps</button>
+        <button class="tab-btn" data-tab="subtopics">Sub-regions</button>
+      </div>
+
+      <div class="tab-panel active" id="tab-notes">
+        <div class="note-editor">
+          <textarea id="noteContent" placeholder="What did you learn or figure out here?"></textarea>
+          <div class="editor-row">
+            <input type="text" id="noteTags" placeholder="tags, comma, separated">
+            <label class="file-btn">
+              📎 Add screenshot
+              <input type="file" id="noteImageInput" accept="image/*" multiple class="hidden">
+            </label>
+            <label class="checkbox-inline"><input type="checkbox" id="noteQuickRef"> quick-reference card</label>
+            <button class="btn btn-primary" style="width:auto;" id="saveNoteBtn">Save note</button>
+          </div>
+          <div id="imagePreviewRow" class="note-images"></div>
+        </div>
+        <div id="notesList"></div>
+      </div>
+
+      <div class="tab-panel" id="tab-checklist">
+        <div id="checklistList"></div>
+        <div class="add-row">
+          <input type="text" id="checklistInput" placeholder="Add a step, e.g. 'Click Settings > Users'">
+          <button class="btn btn-primary" style="width:auto;" id="addChecklistBtn">Add step</button>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="tab-subtopics">
+        <div class="topic-tree" id="subtopicTree"></div>
+        <div class="add-topic-inline" style="margin-left:0;padding-left:0;margin-top:10px;">
+          <button class="btn-add-root" id="addSubtopicBtn">+ Chart a sub-region</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- GUIDEBOOK ---------- -->
+    <section class="view" id="view-guidebook">
+      <div class="view-header">
+        <div>
+          <h2>Guidebook</h2>
+          <div class="sub">A clean reference compiled from everything you've charted.</div>
+        </div>
+      </div>
+      <div id="guidebookList"></div>
+    </section>
+
+    <!-- ---------- SEARCH ---------- -->
+    <section class="view" id="view-search">
+      <div class="view-header">
+        <div>
+          <h2>Search</h2>
+          <div class="sub">Find any note, step, or region instantly.</div>
+        </div>
+      </div>
+      <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="Search notes, steps, and regions…">
+      </div>
+      <div class="search-results" id="searchResults"></div>
+    </section>
+
+  </main>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+<div class="seal-overlay" id="sealOverlay"><div class="seal">CHARTED</div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
