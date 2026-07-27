@@ -248,6 +248,22 @@ function renderDashboard() {
 // ============================================================
 const STATUS_ICON = { uncharted: '○', exploring: '◐', charted: '●', review: '⚑' };
 
+function hexToRgba(hex, alpha) {
+  const h = hex.replace('#', '');
+  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+  const int = parseInt(full, 16);
+  const r = (int >> 16) & 255, g = (int >> 8) & 255, b = int & 255;
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+function tileColorStyle(t) {
+  if (!t.color) return '';
+  return `border-color:${t.color};background:${hexToRgba(t.color, 0.16)};box-shadow:0 0 0 3px ${hexToRgba(t.color, 0.14)};color:${t.color};`;
+}
+function badgeColorStyle(t) {
+  if (!t.color) return '';
+  return `border-color:${t.color};background:${t.color};`;
+}
+
 function computeLayout() {
   const childrenMap = {};
   state.topics.forEach((t) => {
@@ -316,7 +332,7 @@ function renderListNodes(parentId) {
           ${kids.length
             ? `<button class="row-toggle-btn" data-id="${t.id}" title="${collapsed ? 'Expand' : 'Collapse'}">${collapsed ? '▸' : '▾'}</button>`
             : `<span class="row-toggle-spacer"></span>`}
-          <span class="badge ${t.status}"></span>
+          <span class="badge ${t.status}" style="${badgeColorStyle(t)}"></span>
           <span class="topic-title">${escapeHtml(t.title)}</span>
           <span class="topic-meta">${noteCount} note${noteCount === 1 ? '' : 's'}</span>
           <span class="topic-row-actions">
@@ -416,6 +432,7 @@ function renderTreeMap() {
       const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       path.setAttribute('d', `M ${x1} ${y1} V ${midY} H ${x2} V ${y2}`);
       path.setAttribute('class', `connector ${t.status}`);
+      if (t.color) path.setAttribute('style', `stroke:${hexToRgba(t.color, 0.55)}`);
       svg.appendChild(path);
     }
   });
@@ -430,7 +447,7 @@ function renderTreeMap() {
     el.style.left = centerX + 'px';
     el.style.top = topY + 'px';
     el.innerHTML = `
-      <div class="map-tile ${t.status}" data-id="${t.id}" style="width:${tile}px;height:${tile}px;font-size:${fontSize}px;">
+      <div class="map-tile ${t.status}" data-id="${t.id}" style="width:${tile}px;height:${tile}px;font-size:${fontSize}px;${tileColorStyle(t)}">
         <span class="map-tile-icon">${STATUS_ICON[t.status] || '○'}</span>
         <button class="map-add-btn" data-id="${t.id}" title="Add sub-region">+</button>
         <button class="map-delete-btn" data-id="${t.id}" title="Delete this region">✕</button>
@@ -532,7 +549,7 @@ function renderTree(parentId) {
       return `
       <div class="topic-node">
         <div class="topic-row" data-id="${t.id}">
-          <span class="badge ${t.status}"></span>
+          <span class="badge ${t.status}" style="${badgeColorStyle(t)}"></span>
           <span class="topic-title">${escapeHtml(t.title)}</span>
           <span class="topic-meta">${noteCount} note${noteCount === 1 ? '' : 's'}</span>
         </div>
@@ -603,9 +620,33 @@ function renderTopicDetail() {
   $('#moveEarlierBtn').disabled = idx <= 0;
   $('#moveLaterBtn').disabled = idx >= siblings.length - 1;
 
+  renderColorPicker(topic);
+
   renderNotesForTopic(topic.id);
   renderChecklistForTopic(topic.id);
   renderSubtopics(topic.id);
+}
+
+const COLOR_PRESETS = ['#C9A227', '#2F9E8F', '#E4572E', '#7C9CFF', '#C77DFF', '#4FB86A', '#E5A5D6', '#93A0AC'];
+
+function renderColorPicker(topic) {
+  const swatches = $('#colorSwatches');
+  swatches.innerHTML = COLOR_PRESETS.map(
+    (c) => `<button class="color-swatch ${topic.color === c ? 'active' : ''}" style="background:${c}" data-color="${c}" title="${c}"></button>`
+  ).join('');
+  swatches.querySelectorAll('.color-swatch').forEach((b) =>
+    b.addEventListener('click', () => setTopicColor(topic.id, b.dataset.color))
+  );
+  $('#colorCustomInput').value = topic.color || '#c9a227';
+  $('#colorCustomInput').onchange = (e) => setTopicColor(topic.id, e.target.value);
+  $('#colorClearBtn').onclick = () => setTopicColor(topic.id, null);
+}
+
+async function setTopicColor(topicId, color) {
+  const { error } = await sb.from('topics').update({ color }).eq('id', topicId);
+  if (error) return showToast('Could not update color.');
+  await loadTopics();
+  renderAll();
 }
 
 async function setTopicStatus(topicId, status) {

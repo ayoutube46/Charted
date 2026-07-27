@@ -670,6 +670,64 @@ input, textarea, select {
 .status-pill.active.charted { border-color: var(--teal); color: var(--teal); background: rgba(47,158,143,0.1); }
 .status-pill.active.review { border-color: var(--coral); color: var(--coral); background: rgba(228,87,46,0.1); }
 
+.color-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0 4px;
+  flex-wrap: wrap;
+}
+.color-picker-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.color-swatches {
+  display: flex;
+  gap: 6px;
+}
+.color-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.15s;
+}
+.color-swatch:hover { transform: scale(1.15); }
+.color-swatch.active { border-color: var(--text-light); }
+.color-custom-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--ink-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.color-custom-btn:hover { color: var(--text-light); }
+.color-custom-btn input[type=color] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+}
+.color-clear-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.color-clear-btn:hover { color: var(--coral); }
+
 .tabs {
   display: flex;
   gap: 4px;
