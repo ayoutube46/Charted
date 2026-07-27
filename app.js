@@ -16,6 +16,7 @@ let state = {
   isSignup: false,
   pendingImages: [],
   collapsedTopics: new Set(), // ids whose children are hidden on the map
+  mapViewMode: localStorage.getItem('charted-map-view') || 'tree', // 'tree' | 'list'
 };
 
 const STATUS_LABELS = {
@@ -274,6 +275,88 @@ function computeLayout() {
 }
 
 function renderMap() {
+  $$('#viewModeToggle .mode-btn').forEach((b) => b.classList.toggle('active', b.dataset.mode === state.mapViewMode));
+  $('#mapCanvasWrap').classList.toggle('hidden', state.mapViewMode !== 'tree');
+  $('#listViewWrap').classList.toggle('hidden', state.mapViewMode !== 'list');
+
+  if (state.mapViewMode === 'list') {
+    renderListView();
+  } else {
+    renderTreeMap();
+  }
+}
+
+$$('#viewModeToggle .mode-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    state.mapViewMode = btn.dataset.mode;
+    localStorage.setItem('charted-map-view', state.mapViewMode);
+    renderMap();
+  });
+});
+
+function renderListView() {
+  const tree = $('#mapListTree');
+  tree.innerHTML = renderListNodes(null);
+  bindListEvents(tree);
+  $('#addRootTopicBtnList').onclick = () => promptNewTopic(null);
+}
+
+function renderListNodes(parentId) {
+  const children = state.topics.filter((t) => t.parent_id === parentId).sort((a, b) => a.position - b.position);
+  if (!children.length) return '';
+  return children
+    .map((t) => {
+      const kids = state.topics.filter((c) => c.parent_id === t.id);
+      const collapsed = state.collapsedTopics.has(t.id);
+      const sub = kids.length && !collapsed ? renderListNodes(t.id) : '';
+      const noteCount = state.notes.filter((n) => n.topic_id === t.id).length;
+      return `
+      <div class="topic-node">
+        <div class="topic-row" data-id="${t.id}">
+          ${kids.length
+            ? `<button class="row-toggle-btn" data-id="${t.id}" title="${collapsed ? 'Expand' : 'Collapse'}">${collapsed ? '▸' : '▾'}</button>`
+            : `<span class="row-toggle-spacer"></span>`}
+          <span class="badge ${t.status}"></span>
+          <span class="topic-title">${escapeHtml(t.title)}</span>
+          <span class="topic-meta">${noteCount} note${noteCount === 1 ? '' : 's'}</span>
+          <span class="topic-row-actions">
+            <button class="row-btn row-earlier" data-id="${t.id}" title="Move earlier">↑</button>
+            <button class="row-btn row-later" data-id="${t.id}" title="Move later">↓</button>
+            <button class="row-btn" data-id="${t.id}" data-action="add" title="Add sub-region">+</button>
+            <button class="row-btn row-delete" data-id="${t.id}" title="Delete">✕</button>
+          </span>
+        </div>
+        ${sub ? `<div class="topic-children">${sub}</div>` : ''}
+      </div>`;
+    })
+    .join('');
+}
+
+function bindListEvents(container) {
+  container.querySelectorAll('.topic-row').forEach((row) => {
+    row.addEventListener('click', (e) => {
+      if (e.target.closest('.row-toggle-btn, .topic-row-actions')) return;
+      openTopic(row.dataset.id);
+    });
+  });
+  container.querySelectorAll('.row-toggle-btn').forEach((b) =>
+    b.addEventListener('click', (e) => { e.stopPropagation(); toggleCollapse(b.dataset.id); })
+  );
+  container.querySelectorAll('.row-earlier').forEach((b) =>
+    b.addEventListener('click', (e) => { e.stopPropagation(); moveTopic(b.dataset.id, -1); })
+  );
+  container.querySelectorAll('.row-later').forEach((b) =>
+    b.addEventListener('click', (e) => { e.stopPropagation(); moveTopic(b.dataset.id, 1); })
+  );
+  container.querySelectorAll('[data-action="add"]').forEach((b) =>
+    b.addEventListener('click', (e) => { e.stopPropagation(); promptNewTopic(b.dataset.id); })
+  );
+  container.querySelectorAll('.row-delete').forEach((b) =>
+    b.addEventListener('click', (e) => { e.stopPropagation(); deleteTopic(b.dataset.id); })
+  );
+}
+
+function renderTreeMap() {
   const { positions, leafCount } = computeLayout();
 
   // variable tile size: shrink everything as the map grows wider,
@@ -418,6 +501,27 @@ async function deleteTopic(topicId) {
   showToast('Region deleted.');
 }
 
+async function moveTopic(topicId, direction) {
+  const topic = state.topics.find((t) => t.id === topicId);
+  if (!topic) return;
+  const siblings = state.topics
+    .filter((t) => t.parent_id === topic.parent_id)
+    .sort((a, b) => a.position - b.position);
+  const idx = siblings.findIndex((t) => t.id === topicId);
+  const swapIdx = idx + direction;
+  if (swapIdx < 0 || swapIdx >= siblings.length) return;
+
+  const other = siblings[swapIdx];
+  const [err1, err2] = await Promise.all([
+    sb.from('topics').update({ position: other.position }).eq('id', topic.id).then((r) => r.error),
+    sb.from('topics').update({ position: topic.position }).eq('id', other.id).then((r) => r.error),
+  ]);
+  if (err1 || err2) return showToast('Could not reorder.');
+
+  await loadTopics();
+  renderAll();
+}
+
 function renderTree(parentId) {
   const children = state.topics.filter((t) => t.parent_id === parentId);
   if (!children.length) return '';
@@ -492,6 +596,12 @@ function renderTopicDetail() {
     btn.addEventListener('click', () => setTopicStatus(topic.id, btn.dataset.status));
   });
   $('#deleteTopicBtn').onclick = () => deleteTopic(topic.id);
+  $('#moveEarlierBtn').onclick = () => moveTopic(topic.id, -1);
+  $('#moveLaterBtn').onclick = () => moveTopic(topic.id, 1);
+  const siblings = state.topics.filter((t) => t.parent_id === topic.parent_id).sort((a, b) => a.position - b.position);
+  const idx = siblings.findIndex((t) => t.id === topic.id);
+  $('#moveEarlierBtn').disabled = idx <= 0;
+  $('#moveLaterBtn').disabled = idx >= siblings.length - 1;
 
   renderNotesForTopic(topic.id);
   renderChecklistForTopic(topic.id);
