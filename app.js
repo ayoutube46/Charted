@@ -15,6 +15,7 @@ let state = {
   currentTab: 'notes',
   isSignup: false,
   pendingImages: [],
+  collapsedTopics: new Set(), // ids whose children are hidden on the map
 };
 
 const STATUS_LABELS = {
@@ -258,13 +259,14 @@ function computeLayout() {
   let leafCounter = 0;
   function assign(node, depth) {
     const kids = childrenMap[node.id] || [];
-    if (!kids.length) {
-      positions[node.id] = { x: leafCounter, depth };
+    const collapsed = state.collapsedTopics.has(node.id);
+    if (!kids.length || collapsed) {
+      positions[node.id] = { x: leafCounter, depth, hasChildren: kids.length > 0, collapsed };
       leafCounter += 1;
     } else {
       kids.forEach((k) => assign(k, depth + 1));
       const xs = kids.map((k) => positions[k.id].x);
-      positions[node.id] = { x: (Math.min(...xs) + Math.max(...xs)) / 2, depth };
+      positions[node.id] = { x: (Math.min(...xs) + Math.max(...xs)) / 2, depth, hasChildren: true, collapsed: false };
     }
   }
   (childrenMap['root'] || []).forEach((r) => assign(r, 0));
@@ -273,7 +275,16 @@ function computeLayout() {
 
 function renderMap() {
   const { positions, leafCount } = computeLayout();
-  const colWidth = 120, rowHeight = 116, padX = 60, padY = 20, tile = 60;
+
+  // variable tile size: shrink everything as the map grows wider,
+  // so a big tree stays readable without a giant scrollbar.
+  const scale = Math.max(0.55, Math.min(1, 9 / leafCount));
+  const tile = Math.round(60 * scale);
+  const colWidth = Math.round(120 * scale);
+  const rowHeight = Math.round(112 * scale);
+  const padX = 60, padY = 20;
+  const fontSize = Math.max(13, Math.round(22 * scale));
+  const labelSize = Math.max(10, Math.round(11.5 * scale));
 
   let maxDepth = 0;
   Object.values(positions).forEach((p) => { if (p.depth > maxDepth) maxDepth = p.depth; });
@@ -281,7 +292,7 @@ function renderMap() {
   const canvas = $('#mapCanvas');
   const svg = $('#mapConnectors');
   const width = leafCount * colWidth + padX * 2;
-  const height = (maxDepth + 1) * rowHeight + padY * 2;
+  const height = (maxDepth + 1) * rowHeight + padY * 2 + 20;
 
   canvas.style.width = width + 'px';
   canvas.style.height = height + 'px';
@@ -289,8 +300,6 @@ function renderMap() {
   svg.setAttribute('height', height);
   svg.innerHTML = '';
   // clear everything in the canvas except the connectors svg itself
-  // (previously this only removed .map-node tiles, which left a stale
-  // "no regions yet" message on screen once topics loaded in)
   Array.from(canvas.children).forEach((child) => {
     if (child !== svg) child.remove();
   });
@@ -306,17 +315,20 @@ function renderMap() {
     return;
   }
 
-  const pxOf = (id) => {
-    const p = positions[id];
-    return { x: p.x * colWidth + padX, y: p.depth * rowHeight + padY };
-  };
+  // tile CENTER x / TOP y for a given position entry — this is the single
+  // source of truth both nodes and connectors read from, so they can never
+  // drift apart the way they did before.
+  const centerXOf = (pos) => pos.x * colWidth + padX + colWidth / 2;
+  const topYOf = (pos) => pos.depth * rowHeight + padY;
 
-  state.topics.forEach((t) => {
-    if (t.parent_id) {
-      const parentPx = pxOf(t.parent_id);
-      const childPx = pxOf(t.id);
-      const x1 = parentPx.x + tile / 2, y1 = parentPx.y + tile;
-      const x2 = childPx.x + tile / 2, y2 = childPx.y;
+  const visibleTopics = state.topics.filter((t) => positions[t.id]);
+
+  visibleTopics.forEach((t) => {
+    if (t.parent_id && positions[t.parent_id]) {
+      const pPos = positions[t.parent_id];
+      const cPos = positions[t.id];
+      const x1 = centerXOf(pPos), y1 = topYOf(pPos) + tile;
+      const x2 = centerXOf(cPos), y2 = topYOf(cPos);
       const midY = (y1 + y2) / 2;
       const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       path.setAttribute('d', `M ${x1} ${y1} V ${midY} H ${x2} V ${y2}`);
@@ -325,26 +337,30 @@ function renderMap() {
     }
   });
 
-  state.topics.forEach((t) => {
-    const { x, y } = pxOf(t.id);
+  visibleTopics.forEach((t) => {
+    const pos = positions[t.id];
+    const centerX = centerXOf(pos);
+    const topY = topYOf(pos);
     const noteCount = state.notes.filter((n) => n.topic_id === t.id).length;
     const el = document.createElement('div');
     el.className = 'map-node';
-    el.style.left = x + tile / 2 + 'px';
-    el.style.top = y + 'px';
+    el.style.left = centerX + 'px';
+    el.style.top = topY + 'px';
     el.innerHTML = `
-      <div class="map-tile ${t.status}" data-id="${t.id}">
+      <div class="map-tile ${t.status}" data-id="${t.id}" style="width:${tile}px;height:${tile}px;font-size:${fontSize}px;">
         <span class="map-tile-icon">${STATUS_ICON[t.status] || '○'}</span>
         <button class="map-add-btn" data-id="${t.id}" title="Add sub-region">+</button>
+        <button class="map-delete-btn" data-id="${t.id}" title="Delete this region">✕</button>
+        ${pos.hasChildren ? `<button class="map-toggle-btn" data-id="${t.id}" title="${pos.collapsed ? 'Expand' : 'Collapse'} sub-regions">${pos.collapsed ? '▸' : '▾'}</button>` : ''}
       </div>
-      <div class="map-label">${escapeHtml(truncate(t.title, 18))}${noteCount ? ` <span style="color:var(--text-muted)">(${noteCount})</span>` : ''}</div>
+      <div class="map-label" style="font-size:${labelSize}px;">${escapeHtml(truncate(t.title, 18))}${noteCount ? ` <span style="color:var(--text-muted)">(${noteCount})</span>` : ''}</div>
     `;
     canvas.appendChild(el);
   });
 
   canvas.querySelectorAll('.map-tile').forEach((tileEl) =>
     tileEl.addEventListener('click', (e) => {
-      if (e.target.classList.contains('map-add-btn')) return;
+      if (e.target.closest('.map-add-btn, .map-delete-btn, .map-toggle-btn')) return;
       openTopic(tileEl.dataset.id);
     })
   );
@@ -354,7 +370,52 @@ function renderMap() {
       promptNewTopic(b.dataset.id);
     })
   );
+  canvas.querySelectorAll('.map-delete-btn').forEach((b) =>
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteTopic(b.dataset.id);
+    })
+  );
+  canvas.querySelectorAll('.map-toggle-btn').forEach((b) =>
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleCollapse(b.dataset.id);
+    })
+  );
   $('#addRootTopicBtn').onclick = () => promptNewTopic(null);
+}
+
+function toggleCollapse(topicId) {
+  if (state.collapsedTopics.has(topicId)) {
+    state.collapsedTopics.delete(topicId);
+  } else {
+    state.collapsedTopics.add(topicId);
+  }
+  renderAll();
+}
+
+async function deleteTopic(topicId) {
+  const topic = state.topics.find((t) => t.id === topicId);
+  if (!topic) return;
+  const childCount = state.topics.filter((t) => t.parent_id === topicId).length;
+  const warning = childCount
+    ? `Delete "${topic.title}" and its ${childCount} sub-region${childCount === 1 ? '' : 's'}, plus all their notes and steps? This can't be undone.`
+    : `Delete "${topic.title}" and all its notes and steps? This can't be undone.`;
+  if (!confirm(warning)) return;
+
+  const { error } = await sb.from('topics').delete().eq('id', topicId);
+  if (error) return showToast('Could not delete: ' + error.message);
+
+  state.collapsedTopics.delete(topicId);
+  const wasOpenTopic = state.currentTopicId === topicId;
+  await Promise.all([loadTopics(), loadNotes(), loadChecklist()]);
+
+  if (wasOpenTopic || (state.currentTopicId && !state.topics.find((t) => t.id === state.currentTopicId))) {
+    switchView('map');
+  } else {
+    renderAll();
+  }
+  showToast('Region deleted.');
 }
 
 function renderTree(parentId) {
@@ -430,6 +491,7 @@ function renderTopicDetail() {
   $$('#statusSelect .status-pill').forEach((btn) => {
     btn.addEventListener('click', () => setTopicStatus(topic.id, btn.dataset.status));
   });
+  $('#deleteTopicBtn').onclick = () => deleteTopic(topic.id);
 
   renderNotesForTopic(topic.id);
   renderChecklistForTopic(topic.id);

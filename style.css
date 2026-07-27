@@ -479,23 +479,23 @@ input, textarea, select {
 
 .map-node {
   position: absolute;
-  width: 90px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  transform: translateX(-45px);
-  animation: rise 0.3s ease both;
+  transform: translateX(-50%); /* percentage-based: stays correct at any tile size */
+  animation: nodeFadeIn 0.25s ease both; /* opacity-only — never touches transform */
+}
+@keyframes nodeFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 .map-tile {
-  width: 60px;
-  height: 60px;
   border-radius: 12px;
   background: var(--ink-2);
   border: 2px solid var(--text-muted);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
   cursor: pointer;
   position: relative;
   transition: transform 0.12s, border-color 0.15s, box-shadow 0.15s;
@@ -511,18 +511,14 @@ input, textarea, select {
   text-align: center;
   color: var(--text-light);
   line-height: 1.25;
-  max-width: 90px;
+  max-width: 100px;
   word-wrap: break-word;
 }
-.map-add-btn {
+.map-add-btn, .map-delete-btn, .map-toggle-btn {
   position: absolute;
-  top: -8px;
-  right: -8px;
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: var(--brass);
-  color: var(--ink);
   border: 2px solid var(--ink-2);
   font-size: 12px;
   line-height: 1;
@@ -533,7 +529,30 @@ input, textarea, select {
   transform: scale(0.7);
   transition: opacity 0.15s, transform 0.15s;
 }
-.map-node:hover .map-add-btn { opacity: 1; transform: scale(1); }
+.map-add-btn {
+  top: -8px;
+  right: -8px;
+  background: var(--brass);
+  color: var(--ink);
+}
+.map-delete-btn {
+  top: -8px;
+  left: -8px;
+  background: var(--coral);
+  color: var(--ink);
+}
+.map-toggle-btn {
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%) scale(0.7);
+  background: var(--ink-3);
+  color: var(--text-light);
+  border-color: var(--border-soft);
+  opacity: 1; /* always visible — it's a primary affordance, not a hover extra */
+}
+.map-toggle-btn:hover { background: var(--brass); color: var(--ink); }
+.map-node:hover .map-add-btn,
+.map-node:hover .map-delete-btn { opacity: 1; transform: scale(1); }
 
 .map-legend {
   display: flex;
