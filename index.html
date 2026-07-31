@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GDS Learning System</title>
-<link rel="icon" type="image/svg+xml" href="GS.svg">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -13,7 +12,7 @@
 <div class="auth-screen" id="authScreen">
   <div class="auth-card">
     <div class="auth-mark">EXPEDITION LOG</div>
-    <h1>GDS Learning System</h1>
+    <h1>Charted</h1>
     <p class="auth-sub">Your personal field guide for mapping the school management system, one region at a time.</p>
 
     <div class="auth-error" id="authError"></div>
@@ -115,7 +114,18 @@
           <button class="mode-btn active" data-mode="tree">⌗ Tree</button>
           <button class="mode-btn" data-mode="list">☰ List</button>
         </div>
-        <button class="btn btn-ghost" id="exportBtn">Export as Markdown</button>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-ghost" id="levelColorsBtn">🎨 Level colors</button>
+          <button class="btn btn-ghost" id="exportBtn">Export as Markdown</button>
+        </div>
+      </div>
+      <div class="level-colors-panel hidden" id="levelColorsPanel">
+        <div class="level-colors-intro">
+          Set a default color per depth — e.g. all top-level regions one color,
+          their sub-regions another. A topic's own custom color (set inside it)
+          always overrides its level default.
+        </div>
+        <div class="level-colors-list" id="levelColorsList"></div>
       </div>
       <div class="map-canvas-wrap" id="mapCanvasWrap">
         <button class="map-add-root-btn" id="addRootTopicBtn">+ New expedition point</button>
@@ -138,25 +148,31 @@
     <!-- ---------- TOPIC DETAIL ---------- -->
     <section class="view" id="view-topic">
       <div class="crumb"><button id="backToMapBtn">← back to map</button></div>
-      <div class="journal-header">
+
+      <div class="journal-top-row">
         <h2 id="topicTitle">—</h2>
-        <div style="display:flex;align-items:center;gap:10px;">
-          <div class="status-select" id="statusSelect"></div>
-          <button class="btn btn-ghost" id="moveEarlierBtn" title="Move before its previous sibling">↑ Earlier</button>
-          <button class="btn btn-ghost" id="moveLaterBtn" title="Move after its next sibling">↓ Later</button>
-          <button class="btn btn-ghost" id="deleteTopicBtn" style="color:var(--coral);border-color:rgba(228,87,46,0.4);">Delete</button>
+        <div class="icon-toolbar">
+          <button class="icon-btn" id="moveEarlierBtn" title="Move earlier">↑</button>
+          <button class="icon-btn" id="moveLaterBtn" title="Move later">↓</button>
+          <button class="icon-btn icon-btn-danger" id="deleteTopicBtn" title="Delete this region">🗑</button>
         </div>
       </div>
       <div class="sub" id="topicMeta" style="color:var(--text-muted);font-size:13px;"></div>
 
-      <div class="color-picker-row" id="colorPickerRow">
-        <span class="color-picker-label">Color:</span>
+      <div class="detail-row">
+        <span class="detail-row-label">Status</span>
+        <div class="status-select" id="statusSelect"></div>
+      </div>
+
+      <div class="detail-row" id="colorPickerRow">
+        <span class="detail-row-label">Color</span>
         <div class="color-swatches" id="colorSwatches"></div>
-        <label class="color-custom-btn">
+        <label class="color-custom-btn" title="Pick a custom color">
           <input type="color" id="colorCustomInput">
-          <span>Custom</span>
+          🎨
         </label>
-        <button class="color-clear-btn" id="colorClearBtn">Clear</button>
+        <button class="color-clear-btn" id="colorClearBtn" title="Clear custom color">✕</button>
+        <span class="color-level-note" id="colorLevelNote"></span>
       </div>
 
       <div class="tabs">
@@ -227,7 +243,7 @@
 </div>
 
 <div class="toast-wrap" id="toastWrap"></div>
-<div class="seal-overlay" id="sealOverlay"><div class="seal">GDS</div></div>
+<div class="seal-overlay" id="sealOverlay"><div class="seal">CHARTED</div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>

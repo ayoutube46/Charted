@@ -636,13 +636,37 @@ input, textarea, select {
 .legend-dot.review { border-color: var(--coral); background: var(--coral); }
 
 /* ---------- Topic detail (journal page) ---------- */
-.journal-header {
+.journal-top-row {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 6px;
+  align-items: flex-start;
   gap: 16px;
+  margin-bottom: 4px;
 }
+.journal-top-row h2 { padding-top: 4px; }
+.icon-toolbar {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.icon-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 7px;
+  background: var(--ink-2);
+  border: 1px solid var(--border-soft);
+  color: var(--text-muted);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, border-color 0.15s;
+}
+.icon-btn:hover { color: var(--text-light); border-color: var(--brass); }
+.icon-btn:disabled { opacity: 0.35; cursor: default; }
+.icon-btn:disabled:hover { border-color: var(--border-soft); color: var(--text-muted); }
+.icon-btn-danger:hover { color: var(--coral); border-color: rgba(228,87,46,0.5); }
+
 .crumb {
   font-family: var(--font-mono);
   font-size: 12px;
@@ -653,6 +677,7 @@ input, textarea, select {
 .status-select {
   display: flex;
   gap: 6px;
+  flex-wrap: wrap;
 }
 .status-pill {
   border: 1px solid var(--border-soft);
@@ -670,26 +695,29 @@ input, textarea, select {
 .status-pill.active.charted { border-color: var(--teal); color: var(--teal); background: rgba(47,158,143,0.1); }
 .status-pill.active.review { border-color: var(--coral); color: var(--coral); background: rgba(228,87,46,0.1); }
 
-.color-picker-row {
+/* ---------- detail rows (status / color) — own line each, more breathing room ---------- */
+.detail-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin: 14px 0 4px;
+  gap: 12px;
+  margin: 16px 0;
   flex-wrap: wrap;
 }
-.color-picker-label {
+.detail-row-label {
   font-size: 12px;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  width: 52px;
+  flex-shrink: 0;
 }
 .color-swatches {
   display: flex;
-  gap: 6px;
+  gap: 7px;
 }
 .color-swatch {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   border: 2px solid transparent;
   cursor: pointer;
@@ -701,16 +729,16 @@ input, textarea, select {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
   background: var(--ink-2);
   border: 1px solid var(--border-soft);
   border-radius: 6px;
-  padding: 4px 10px;
-  font-size: 12px;
-  color: var(--text-muted);
+  font-size: 13px;
   cursor: pointer;
 }
-.color-custom-btn:hover { color: var(--text-light); }
+.color-custom-btn:hover { border-color: var(--brass); }
 .color-custom-btn input[type=color] {
   position: absolute;
   inset: 0;
@@ -719,14 +747,50 @@ input, textarea, select {
   width: 100%;
 }
 .color-clear-btn {
-  background: none;
-  border: none;
+  width: 28px;
+  height: 28px;
+  background: var(--ink-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
   color: var(--text-muted);
   font-size: 12px;
-  text-decoration: underline;
-  text-underline-offset: 2px;
 }
-.color-clear-btn:hover { color: var(--coral); }
+.color-clear-btn:hover { color: var(--coral); border-color: rgba(228,87,46,0.4); }
+.color-level-note {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ---------- level colors panel (Map view) ---------- */
+.level-colors-panel {
+  background: var(--ink-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  margin-bottom: 16px;
+}
+.level-colors-panel.hidden { display: none; }
+.level-colors-intro {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 14px;
+  max-width: 640px;
+}
+.level-colors-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.level-color-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.level-color-row .level-name { font-size: 13.5px; width: 130px; flex-shrink: 0; }
+.level-color-row .color-custom-btn { width: 26px; height: 26px; }
+
 
 .tabs {
   display: flex;

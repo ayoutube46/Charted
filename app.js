@@ -17,6 +17,7 @@ let state = {
   pendingImages: [],
   collapsedTopics: new Set(), // ids whose children are hidden on the map
   mapViewMode: localStorage.getItem('charted-map-view') || 'tree', // 'tree' | 'list'
+  levelColors: JSON.parse(localStorage.getItem('charted-level-colors') || '{}'), // { "0": "#hex", "1": "#hex", ... }
 };
 
 const STATUS_LABELS = {
@@ -255,13 +256,30 @@ function hexToRgba(hex, alpha) {
   const r = (int >> 16) & 255, g = (int >> 8) & 255, b = int & 255;
   return `rgba(${r},${g},${b},${alpha})`;
 }
+function topicDepth(topicId) {
+  let depth = 0;
+  let cur = state.topics.find((t) => t.id === topicId);
+  const seen = new Set();
+  while (cur && cur.parent_id && !seen.has(cur.id)) {
+    seen.add(cur.id);
+    depth++;
+    cur = state.topics.find((t) => t.id === cur.parent_id);
+  }
+  return depth;
+}
+// a topic's own color always wins; otherwise fall back to that depth's default
+function effectiveColor(t) {
+  return t.color || state.levelColors[String(topicDepth(t.id))] || null;
+}
 function tileColorStyle(t) {
-  if (!t.color) return '';
-  return `border-color:${t.color};background:${hexToRgba(t.color, 0.16)};box-shadow:0 0 0 3px ${hexToRgba(t.color, 0.14)};color:${t.color};`;
+  const color = effectiveColor(t);
+  if (!color) return '';
+  return `border-color:${color};background:${hexToRgba(color, 0.16)};box-shadow:0 0 0 3px ${hexToRgba(color, 0.14)};color:${color};`;
 }
 function badgeColorStyle(t) {
-  if (!t.color) return '';
-  return `border-color:${t.color};background:${t.color};`;
+  const color = effectiveColor(t);
+  if (!color) return '';
+  return `border-color:${color};background:${color};`;
 }
 
 function computeLayout() {
@@ -295,6 +313,8 @@ function renderMap() {
   $('#mapCanvasWrap').classList.toggle('hidden', state.mapViewMode !== 'tree');
   $('#listViewWrap').classList.toggle('hidden', state.mapViewMode !== 'list');
 
+  renderLevelColorsPanel();
+
   if (state.mapViewMode === 'list') {
     renderListView();
   } else {
@@ -309,6 +329,48 @@ $$('#viewModeToggle .mode-btn').forEach((btn) => {
     renderMap();
   });
 });
+
+$('#levelColorsBtn').addEventListener('click', () => {
+  $('#levelColorsPanel').classList.toggle('hidden');
+});
+
+const LEVEL_NAMES = ['Level 1 (top)', 'Level 2', 'Level 3', 'Level 4', 'Level 5', 'Level 6'];
+
+function renderLevelColorsPanel() {
+  let maxDepth = 0;
+  state.topics.forEach((t) => { maxDepth = Math.max(maxDepth, topicDepth(t.id)); });
+  const rowCount = Math.min(Math.max(maxDepth + 2, 2), LEVEL_NAMES.length); // always show at least one spare level
+
+  $('#levelColorsList').innerHTML = Array.from({ length: rowCount }, (_, depth) => {
+    const current = state.levelColors[String(depth)] || '';
+    return `
+    <div class="level-color-row">
+      <span class="level-name">${LEVEL_NAMES[depth] || `Level ${depth + 1}`}</span>
+      <label class="color-custom-btn" style="${current ? `background:${current};` : ''}" title="Pick a color">
+        <input type="color" data-depth="${depth}" class="level-color-input" value="${current || '#c9a227'}">
+        ${current ? '' : '🎨'}
+      </label>
+      <button class="color-clear-btn level-color-clear" data-depth="${depth}" title="Clear this level's default" ${current ? '' : 'disabled'}>✕</button>
+    </div>`;
+  }).join('');
+
+  $$('.level-color-input').forEach((input) =>
+    input.addEventListener('change', (e) => setLevelColor(e.target.dataset.depth, e.target.value))
+  );
+  $$('.level-color-clear').forEach((btn) =>
+    btn.addEventListener('click', () => setLevelColor(btn.dataset.depth, null))
+  );
+}
+
+function setLevelColor(depth, color) {
+  if (color) {
+    state.levelColors[depth] = color;
+  } else {
+    delete state.levelColors[depth];
+  }
+  localStorage.setItem('charted-level-colors', JSON.stringify(state.levelColors));
+  renderAll();
+}
 
 function renderListView() {
   const tree = $('#mapListTree');
@@ -432,7 +494,7 @@ function renderTreeMap() {
       const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       path.setAttribute('d', `M ${x1} ${y1} V ${midY} H ${x2} V ${y2}`);
       path.setAttribute('class', `connector ${t.status}`);
-      if (t.color) path.setAttribute('style', `stroke:${hexToRgba(t.color, 0.55)}`);
+      { const c = effectiveColor(t); if (c) path.setAttribute('style', `stroke:${hexToRgba(c, 0.55)}`); }
       svg.appendChild(path);
     }
   });
@@ -637,9 +699,20 @@ function renderColorPicker(topic) {
   swatches.querySelectorAll('.color-swatch').forEach((b) =>
     b.addEventListener('click', () => setTopicColor(topic.id, b.dataset.color))
   );
-  $('#colorCustomInput').value = topic.color || '#c9a227';
+  $('#colorCustomInput').value = topic.color || effectiveColor(topic) || '#c9a227';
   $('#colorCustomInput').onchange = (e) => setTopicColor(topic.id, e.target.value);
   $('#colorClearBtn').onclick = () => setTopicColor(topic.id, null);
+  $('#colorClearBtn').disabled = !topic.color;
+
+  const levelColor = state.levelColors[String(topicDepth(topic.id))];
+  const note = $('#colorLevelNote');
+  if (topic.color) {
+    note.textContent = 'Custom color set for this topic.';
+  } else if (levelColor) {
+    note.textContent = `Using this level's default color.`;
+  } else {
+    note.textContent = '';
+  }
 }
 
 async function setTopicColor(topicId, color) {
