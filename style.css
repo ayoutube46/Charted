@@ -578,8 +578,13 @@ input, textarea, select {
   text-align: center;
   color: var(--text-light);
   line-height: 1.25;
-  max-width: 100px;
+  width: 100%;
   word-wrap: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .map-add-btn, .map-delete-btn, .map-toggle-btn {
   position: absolute;

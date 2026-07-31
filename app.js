@@ -442,7 +442,7 @@ function renderTreeMap() {
   const scale = Math.max(0.55, Math.min(1, 9 / leafCount));
   const tile = Math.round(60 * scale);
   const colWidth = Math.round(120 * scale);
-  const rowHeight = Math.round(112 * scale);
+  const rowHeight = Math.round(130 * scale);
   const padX = 60, padY = 20;
   const fontSize = Math.max(13, Math.round(22 * scale));
   const labelSize = Math.max(10, Math.round(11.5 * scale));
@@ -504,10 +504,12 @@ function renderTreeMap() {
     const centerX = centerXOf(pos);
     const topY = topYOf(pos);
     const noteCount = state.notes.filter((n) => n.topic_id === t.id).length;
+    const labelWidth = Math.max(colWidth - 10, 46); // keep labels strictly inside their own column
     const el = document.createElement('div');
     el.className = 'map-node';
     el.style.left = centerX + 'px';
     el.style.top = topY + 'px';
+    el.style.width = labelWidth + 'px';
     el.innerHTML = `
       <div class="map-tile ${t.status}" data-id="${t.id}" style="width:${tile}px;height:${tile}px;font-size:${fontSize}px;${tileColorStyle(t)}">
         <span class="map-tile-icon">${STATUS_ICON[t.status] || '○'}</span>
@@ -515,7 +517,7 @@ function renderTreeMap() {
         <button class="map-delete-btn" data-id="${t.id}" title="Delete this region">✕</button>
         ${pos.hasChildren ? `<button class="map-toggle-btn" data-id="${t.id}" title="${pos.collapsed ? 'Expand' : 'Collapse'} sub-regions">${pos.collapsed ? '▸' : '▾'}</button>` : ''}
       </div>
-      <div class="map-label" style="font-size:${labelSize}px;">${escapeHtml(truncate(t.title, 18))}${noteCount ? ` <span style="color:var(--text-muted)">(${noteCount})</span>` : ''}</div>
+      <div class="map-label" style="font-size:${labelSize}px;" title="${escapeHtml(t.title)}">${escapeHtml(truncate(t.title, 40))}${noteCount ? ` <span style="color:var(--text-muted)">(${noteCount})</span>` : ''}</div>
     `;
     canvas.appendChild(el);
   });
